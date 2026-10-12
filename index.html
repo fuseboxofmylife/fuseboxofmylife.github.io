@@ -204,10 +204,11 @@ h1 .stack{display:flex;flex-direction:column;font-size:.42em;line-height:1.08;le
 .row.frozen .sw{background:var(--amber);border-color:var(--amber);box-shadow:0 0 12px -2px var(--amber);cursor:not-allowed}
 .sw:disabled{cursor:wait}
 
-.row.trip .sw{animation:trip .7s ease}
-@keyframes trip{0%,60%{background:var(--danger);border-color:var(--danger)}}
-.row.trip .tape{animation:tapeTrip .5s ease}
-@keyframes tapeTrip{15%{transform:rotate(var(--rot)) translateX(-4px)}30%{transform:rotate(var(--rot)) translateX(3px)}45%{transform:rotate(var(--rot)) translateX(0)}}
+/* a switched-off area stays red for about 1.5 s so you can see which one it was */
+.row.trip .sw{animation:trip 2.1s ease}
+@keyframes trip{0%,72%{background:var(--danger);border-color:var(--danger);box-shadow:0 0 12px -2px var(--danger)}}
+.row.trip .tape{outline:2px solid transparent;outline-offset:3px;animation:tapeTrip 2.1s ease}
+@keyframes tapeTrip{0%,72%{outline-color:var(--danger);opacity:1}6%{transform:rotate(var(--rot)) translateX(-4px)}12%{transform:rotate(var(--rot)) translateX(3px)}18%{transform:rotate(var(--rot)) translateX(0)}}
 .row.shake{animation:shake .42s ease}
 @keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
 .panel.overload{animation:buzz .09s linear infinite}
@@ -229,7 +230,7 @@ h1 .stack{display:flex;flex-direction:column;font-size:.42em;line-height:1.08;le
 .count-slot{flex:none;width:84px;display:flex;justify-content:center}
 /* fixed height (2 lines; 3 on phones) so the switches below never jump; long jokes shrink to fit */
 .display{flex:1;min-width:0;font-size:14px;line-height:1.5;color:var(--muted);height:48px;overflow:visible;clip-path:inset(-4px -4px -4px -14px);padding-top:2px}
-@media (max-width:420px){.display{font-size:13px;height:64px}}
+@media (max-width:420px){.display{font-size:13px;height:64px}body{padding-top:6px}.topbar{margin-top:0}}
 .display .txt{display:inline;border-radius:6px;transition:background .25s,color .25s}
 .display.msg .txt{background:var(--amber-soft);color:var(--ink);font-weight:600;margin-left:-8px;padding:2px 8px;-webkit-box-decoration-break:clone;box-decoration-break:clone}
 .display.pop .txt{animation:pop .45s ease;display:inline-block}
@@ -480,7 +481,7 @@ const T={
   sacred:'Усі місця зайняті святим. «{x}» — в наступному житті.',
   frozenTap:'«{x}» залочено: для вас це святе. Змінити можна в налаштуваннях.',
   noRoomWithoutMoney:'Без грошей ваше залочене не вміщається. Гроші лишаються.',
-  tryAllDone:'Ви намагались встигнути все. Знайомо?',
+  tryAllDone:'Ви намагались встигнути все. Знайомо?',tryAllAuto:'Так виглядає спроба встигнути все. Тепер ваша черга.',
   copied:'Скопійовано. Можна вставляти куди завгодно.',copyFallback:'Скопіюйте текст вручну',shareHead:'Щиток мого життя:',
   shareFoot:(n,total)=>`Увімкнено ${n} з ${total}. Усе одразу — неможливо.`,
   presetLoaded:'Набір «{x}» завантажено.',resetDone:'Усе скинуто до стандартного.',
@@ -551,7 +552,7 @@ const T={
   sacred:'Every slot is sacred. “{x}” will wait for your next life.',
   frozenTap:'“{x}” is locked, so it stays on. You can change that in Settings.',
   noRoomWithoutMoney:'Your locked areas don’t fit without money. The money stays.',
-  tryAllDone:'You tried to do it all. Sound familiar?',
+  tryAllDone:'You tried to do it all. Sound familiar?',tryAllAuto:'This is what trying to do it all looks like. Your turn.',
   copied:'Copied. Paste it anywhere.',copyFallback:'Copy the text manually',shareHead:'Fusebox of my life:',
   shareFoot:(n,total)=>`${n} of ${total} on. All at once is impossible.`,
   presetLoaded:'Loaded the “{x}” set.',resetDone:'Everything is back to default.',
@@ -750,7 +751,7 @@ document.addEventListener('click',e=>{const m=e.target.closest&&e.target.closest
 window.addEventListener('scroll',hideTip,true);
 function rowEl(id){return rowsEl.querySelector(`.row[data-id="${id}"]`);}
 function flash(id,cls,ms){const r=rowEl(id);if(!r)return;r.classList.remove(cls);void r.offsetWidth;r.classList.add(cls);setTimeout(()=>r.classList.remove(cls),ms);}
-const trip=id=>flash(id,'trip',750);
+const trip=id=>flash(id,'trip',2150);
 const shake=id=>flash(id,'shake',450);
 
 const rnd=a=>a[Math.floor(Math.random()*a.length)];
@@ -791,16 +792,17 @@ rowsEl.addEventListener('click',e=>{
 $('btnAll').addEventListener('click',()=>{if(busy)return;if(S.on.some(id=>!cat(id).frozen))allOff();else tryAll(true);});
 
 function setBusy(b){busy=b;$('btnSettings').disabled=b;update();}
-async function tryAll(fromCurrent){
+async function tryAll(fromCurrent,auto){
+  const doneMsg=auto?'tryAllAuto':'tryAllDone';
   if(busy)return;clearMsg();setBusy(true);
   if(!fromCurrent){S.on=S.cats.filter(c=>c.frozen).map(c=>c.id);update();}
-  if(reduceMotion){S.on=S.cats.map(c=>c.id);settle(S,S.on,null);setBusy(false);save();toast(t('tryAllDone'));return;}
+  if(reduceMotion){S.on=S.cats.map(c=>c.id);settle(S,S.on,null);setBusy(false);save();toast(t(doneMsg));return;}
   await sleep(380);
   for(const c of S.cats){if(!S.on.includes(c.id)){S.on.push(c.id);update();await sleep(380);}}
   await sleep(350);panel.classList.add('overload');await sleep(1800);panel.classList.remove('overload');
   let g=0;
-  while(S.on.length>capOf(S,S.on)&&g++<50){const v=pick(S,S.on,null);if(!v)break;S.on.splice(S.on.indexOf(v),1);update();trip(v);await sleep(560);}
-  setBusy(false);save();toast(t('tryAllDone'));
+  while(S.on.length>capOf(S,S.on)&&g++<50){const v=pick(S,S.on,null);if(!v)break;S.on.splice(S.on.indexOf(v),1);update();trip(v);await sleep(900);}
+  setBusy(false);save();toast(t(doneMsg));
 }
 async function allOff(){
   if(busy)return;clearMsg();setBusy(true);
@@ -810,7 +812,7 @@ async function allOff(){
   toast(S.on.length?t('allOffFrozen'):rnd(t('allOff')));
 }
 function runStart(){
-  if(S.settings.start==='tryall')tryAll();
+  if(S.settings.start==='tryall')tryAll(false,true);
   else{S.on=S.cats.filter(c=>c.frozen).map(c=>c.id);save();update();}
 }
 
